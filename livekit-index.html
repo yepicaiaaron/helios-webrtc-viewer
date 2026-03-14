@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helios LiveKit Stream</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 1000px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        h1 {
+            color: #bb86fc;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #video-display {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #888;
+            font-size: 1.2em;
+            position: relative;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #03dac6;
+            color: #121212;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover:not(:disabled) {
+            background-color: #03a89e;
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        #status-log {
+            background-color: #2a2a2a;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85em;
+            color: #bbb;
+        }
+    </style>
+    <!-- Include LiveKit JS SDK from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Helios Live Stream</h1>
+        <div id="video-display">
+            <span id="video-placeholder">Ready to connect...</span>
+        </div>
+
+        <div class="controls">
+            <button id="connectStreamBtn">Connect Stream</button>
+            <button id="disconnectBtn" style="background-color: #ff5252; color: white;" disabled>Disconnect</button>
+        </div>
+
+        <div id="status-log"></div>
+    </div>
+
+    <script>
+        const videoDisplay = document.getElementById('video-display');
+        const videoPlaceholder = document.getElementById('video-placeholder');
+        const connectStreamBtn = document.getElementById('connectStreamBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const statusLog = document.getElementById('status-log');
+
+        const LIVEKIT_URL = '__URL__';
+        const TOKEN = '__TOKEN__';
+
+        let room = null;
+
+        function logStatus(message, isError = false) {
+            const entry = document.createElement('div');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            entry.style.color = isError ? '#ff5252' : '#e0e0e0';
+            statusLog.prepend(entry);
+        }
+
+        async function connectStream() {
+            connectStreamBtn.disabled = true;
+            logStatus('Connecting to LiveKit room...');
+
+            room = new LivekitClient.Room();
+
+            room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                if (track.kind === 'video') {
+                    logStatus('Video track received!');
+                    videoPlaceholder.style.display = 'none';
+                    const element = track.attach();
+                    element.style.width = '100%';
+                    element.style.height = '100%';
+                    element.style.objectFit = 'contain';
+                    videoDisplay.appendChild(element);
+                }
+            });
+
+            room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+                if (track.kind === 'video') {
+                    logStatus('Video track removed.');
+                    track.detach().forEach(el => el.remove());
+                    videoPlaceholder.style.display = 'block';
+                }
+            });
+
+            room.on(LivekitClient.RoomEvent.Disconnected, () => {
+                logStatus('Disconnected from room.');
+                resetUI();
+            });
+
+            try {
+                await room.connect(LIVEKIT_URL, TOKEN);
+                logStatus('Successfully connected to LiveKit!');
+                disconnectBtn.disabled = false;
+            } catch (e) {
+                logStatus(`Failed to connect: ${e.message}`, true);
+                resetUI();
+            }
+        }
+
+        function disconnect() {
+            if (room) {
+                room.disconnect();
+            }
+            resetUI();
+        }
+
+        function resetUI() {
+            connectStreamBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            const videos = videoDisplay.querySelectorAll('video');
+            videos.forEach(v => v.remove());
+            videoPlaceholder.style.display = 'block';
+        }
+
+        connectStreamBtn.addEventListener('click', connectStream);
+        disconnectBtn.addEventListener('click', disconnect);
+    </script>
+</body>
+</html>

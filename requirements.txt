@@ -1,3 +1,2 @@
-flask
-requests
-gunicorn
+aiohttp==3.9.3
+livekit-api==0.1.0
