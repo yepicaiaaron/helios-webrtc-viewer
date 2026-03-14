@@ -33,6 +33,17 @@
             text-align: center;
             margin-bottom: 20px;
         }
+        #prompt-display {
+            background-color: #2c2c2c;
+            border-left: 4px solid #bb86fc;
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 1.1em;
+            font-style: italic;
+            color: #fff;
+            min-height: 24px;
+            display: none;
+        }
         #video-display {
             width: 100%;
             aspect-ratio: 16 / 9;
@@ -92,6 +103,9 @@
 <body>
     <div class="container">
         <h1>Helios Live Stream</h1>
+        
+        <div id="prompt-display">Waiting for prompt...</div>
+
         <div id="video-display">
             <span id="video-placeholder">Ready to connect...</span>
         </div>
@@ -107,6 +121,7 @@
     <script>
         const videoDisplay = document.getElementById('video-display');
         const videoPlaceholder = document.getElementById('video-placeholder');
+        const promptDisplay = document.getElementById('prompt-display');
         const connectStreamBtn = document.getElementById('connectStreamBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
         const statusLog = document.getElementById('status-log');
@@ -149,6 +164,24 @@
                 }
             });
 
+            room.on(LivekitClient.RoomEvent.ParticipantMetadataChanged, (prevMetadata, participant) => {
+                if (participant.identity === 'helios-streamer' && participant.metadata) {
+                    promptDisplay.style.display = 'block';
+                    promptDisplay.textContent = `Prompt: "${participant.metadata}"`;
+                    logStatus(`New prompt: ${participant.metadata}`);
+                }
+            });
+
+            room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+                const decoder = new TextDecoder();
+                const text = decoder.decode(payload);
+                if (topic === 'prompt') {
+                    promptDisplay.style.display = 'block';
+                    promptDisplay.textContent = `Prompt: "${text}"`;
+                    logStatus(`New prompt: ${text}`);
+                }
+            });
+
             room.on(LivekitClient.RoomEvent.Disconnected, () => {
                 logStatus('Disconnected from room.');
                 resetUI();
@@ -158,6 +191,14 @@
                 await room.connect(LIVEKIT_URL, TOKEN);
                 logStatus('Successfully connected to LiveKit!');
                 disconnectBtn.disabled = false;
+                
+                // Check initial metadata
+                for (const participant of room.remoteParticipants.values()) {
+                    if (participant.identity === 'helios-streamer' && participant.metadata) {
+                        promptDisplay.style.display = 'block';
+                        promptDisplay.textContent = `Prompt: "${participant.metadata}"`;
+                    }
+                }
             } catch (e) {
                 logStatus(`Failed to connect: ${e.message}`, true);
                 resetUI();
@@ -177,6 +218,7 @@
             const videos = videoDisplay.querySelectorAll('video');
             videos.forEach(v => v.remove());
             videoPlaceholder.style.display = 'block';
+            promptDisplay.style.display = 'none';
         }
 
         connectStreamBtn.addEventListener('click', connectStream);
