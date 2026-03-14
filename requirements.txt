@@ -1,2 +1,2 @@
-aiohttp==3.9.3
-livekit-api==0.1.0
+aiohttp>=3.9.0
+livekit-api>=1.1.0
