@@ -43,6 +43,19 @@
             color: #fff;
             min-height: 24px;
             display: none;
+            position: relative;
+        }
+        #fps-badge {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background-color: #03dac6;
+            color: #121212;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.8em;
+            font-style: normal;
         }
         #video-display {
             width: 100%;
@@ -104,7 +117,10 @@
     <div class="container">
         <h1>Helios Live Stream</h1>
         
-        <div id="prompt-display">Waiting for prompt...</div>
+        <div id="prompt-display">
+            <span id="prompt-text">Waiting for prompt...</span>
+            <span id="fps-badge" style="display: none;">FPS: --</span>
+        </div>
 
         <div id="video-display">
             <span id="video-placeholder">Ready to connect...</span>
@@ -122,6 +138,8 @@
         const videoDisplay = document.getElementById('video-display');
         const videoPlaceholder = document.getElementById('video-placeholder');
         const promptDisplay = document.getElementById('prompt-display');
+        const promptText = document.getElementById('prompt-text');
+        const fpsBadge = document.getElementById('fps-badge');
         const connectStreamBtn = document.getElementById('connectStreamBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
         const statusLog = document.getElementById('status-log');
@@ -167,7 +185,7 @@
             room.on(LivekitClient.RoomEvent.ParticipantMetadataChanged, (prevMetadata, participant) => {
                 if (participant.identity === 'helios-streamer' && participant.metadata) {
                     promptDisplay.style.display = 'block';
-                    promptDisplay.textContent = `Prompt: "${participant.metadata}"`;
+                    promptText.textContent = `Prompt: "${participant.metadata}"`;
                     logStatus(`New prompt: ${participant.metadata}`);
                 }
             });
@@ -177,8 +195,13 @@
                 const text = decoder.decode(payload);
                 if (topic === 'prompt') {
                     promptDisplay.style.display = 'block';
-                    promptDisplay.textContent = `Prompt: "${text}"`;
+                    promptText.textContent = `Prompt: "${text}"`;
+                    fpsBadge.style.display = 'block';
+                    fpsBadge.textContent = 'FPS: --';
                     logStatus(`New prompt: ${text}`);
+                } else if (topic === 'fps') {
+                    fpsBadge.style.display = 'block';
+                    fpsBadge.textContent = text;
                 }
             });
 
@@ -196,7 +219,7 @@
                 for (const participant of room.remoteParticipants.values()) {
                     if (participant.identity === 'helios-streamer' && participant.metadata) {
                         promptDisplay.style.display = 'block';
-                        promptDisplay.textContent = `Prompt: "${participant.metadata}"`;
+                        promptText.textContent = `Prompt: "${participant.metadata}"`;
                     }
                 }
             } catch (e) {
@@ -219,6 +242,7 @@
             videos.forEach(v => v.remove());
             videoPlaceholder.style.display = 'block';
             promptDisplay.style.display = 'none';
+            fpsBadge.style.display = 'none';
         }
 
         connectStreamBtn.addEventListener('click', connectStream);
