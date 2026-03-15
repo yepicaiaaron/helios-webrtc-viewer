@@ -333,8 +333,8 @@
             sendPromptBtn.disabled = true;
         }
 
-        async function sendPrompt() {
-            const promptText = promptInput.value;
+        async function sendPrompt(customPrompt = null) {
+            const promptText = customPrompt || promptInput.value;
             if (!promptText) return;
 
             logStatus(`Sending prompt: "${promptText}"`);
@@ -353,14 +353,53 @@
             } else {
                 logStatus('Data channel not open. Ensure stream is connected.', true);
             }
-            promptInput.value = '';
+            if (!customPrompt) promptInput.value = '';
         }
 
-        connectStreamBtn.addEventListener('click', connectStream);
-        disconnectBtn.addEventListener('click', disconnect);
-        sendPromptBtn.addEventListener('click', sendPrompt);
+        // --- Auto Story Generator ---
+        const storyPrompts = [
+            "A cinematic landscape, sweeping mountains at dawn",
+            "A lone traveler walking towards a glowing cave",
+            "Inside the cave, ancient ruins lit by blue crystals",
+            "A mysterious portal opens in the center of the ruins",
+            "The traveler steps into the portal, swirling colors",
+            "A futuristic city bathed in neon lights",
+            "Flying cars zooming past skyscrapers"
+        ];
+        let storyIndex = 0;
+        let autoStoryInterval = null;
+
+        function startAutoStory() {
+            if (autoStoryInterval) clearInterval(autoStoryInterval);
+            autoStoryInterval = setInterval(() => {
+                if (dataChannel && dataChannel.readyState === 'open' && !promptInput.value) {
+                    sendPrompt(storyPrompts[storyIndex]);
+                    storyIndex = (storyIndex + 1) % storyPrompts.length;
+                }
+            }, 10000); // Send new prompt every 10 seconds
+        }
+
+        connectStreamBtn.addEventListener('click', () => {
+            connectStream();
+            startAutoStory();
+        });
+        disconnectBtn.addEventListener('click', () => {
+            disconnect();
+            if (autoStoryInterval) clearInterval(autoStoryInterval);
+        });
+        sendPromptBtn.addEventListener('click', () => sendPrompt());
         promptInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendPrompt();
+        });
+        // Stop auto story if user starts typing
+        promptInput.addEventListener('input', () => {
+            if (promptInput.value && autoStoryInterval) {
+                clearInterval(autoStoryInterval);
+                logStatus("Auto-story paused (user typing).");
+            } else if (!promptInput.value) {
+                startAutoStory();
+                logStatus("Auto-story resumed.");
+            }
         });
 
     </script>
