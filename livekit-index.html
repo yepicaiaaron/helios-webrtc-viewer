@@ -127,6 +127,8 @@
         </div>
 
         <div class="controls">
+            <input type="text" id="promptInput" placeholder="Enter prompt to influence video..." style="flex-grow: 1; padding: 12px; border: 1px solid #333; border-radius: 5px; background-color: #2a2a2a; color: #e0e0e0; font-size: 1em; min-width: 200px;">
+            <button id="sendPromptBtn" disabled>Send Prompt</button>
             <button id="connectStreamBtn">Connect Stream</button>
             <button id="disconnectBtn" style="background-color: #ff5252; color: white;" disabled>Disconnect</button>
         </div>
@@ -142,6 +144,8 @@
         const fpsBadge = document.getElementById('fps-badge');
         const connectStreamBtn = document.getElementById('connectStreamBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
+        const promptInput = document.getElementById('promptInput');
+        const sendPromptBtn = document.getElementById('sendPromptBtn');
         const statusLog = document.getElementById('status-log');
 
         const LIVEKIT_URL = '__URL__';
@@ -214,6 +218,7 @@
                 await room.connect(LIVEKIT_URL, TOKEN);
                 logStatus('Successfully connected to LiveKit!');
                 disconnectBtn.disabled = false;
+                sendPromptBtn.disabled = false;
                 
                 // Check initial metadata
                 for (const participant of room.remoteParticipants.values()) {
@@ -238,6 +243,7 @@
         function resetUI() {
             connectStreamBtn.disabled = false;
             disconnectBtn.disabled = true;
+            sendPromptBtn.disabled = true;
             const videos = videoDisplay.querySelectorAll('video');
             videos.forEach(v => v.remove());
             videoPlaceholder.style.display = 'block';
@@ -245,8 +251,66 @@
             fpsBadge.style.display = 'none';
         }
 
-        connectStreamBtn.addEventListener('click', connectStream);
-        disconnectBtn.addEventListener('click', disconnect);
+        async function sendPrompt(customPrompt = null) {
+            const promptValue = customPrompt || promptInput.value;
+            if (!promptValue || !room) return;
+
+            logStatus(`Sending prompt to Helios: "${promptValue}"`);
+            try {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(promptValue);
+                await room.localParticipant.publishData(data, LivekitClient.DataPacket_Kind.RELIABLE, { topic: 'prompt' });
+            } catch (error) {
+                logStatus(`Error sending prompt: ${error.message}`, true);
+            }
+            if (!customPrompt) promptInput.value = '';
+        }
+
+        // --- Auto Story Generator ---
+        const storyPrompts = [
+            "A cinematic landscape, sweeping mountains at dawn",
+            "A lone traveler walking towards a glowing cave",
+            "Inside the cave, ancient ruins lit by blue crystals",
+            "A mysterious portal opens in the center of the ruins",
+            "The traveler steps into the portal, swirling colors",
+            "A futuristic city bathed in neon lights",
+            "Flying cars zooming past skyscrapers"
+        ];
+        let storyIndex = 0;
+        let autoStoryInterval = null;
+
+        function startAutoStory() {
+            if (autoStoryInterval) clearInterval(autoStoryInterval);
+            autoStoryInterval = setInterval(() => {
+                if (room && room.state === 'connected' && !promptInput.value) {
+                    sendPrompt(storyPrompts[storyIndex]);
+                    storyIndex = (storyIndex + 1) % storyPrompts.length;
+                }
+            }, 10000); // Send new prompt every 10 seconds
+        }
+
+        connectStreamBtn.addEventListener('click', () => {
+            connectStream();
+            startAutoStory();
+        });
+        disconnectBtn.addEventListener('click', () => {
+            disconnect();
+            if (autoStoryInterval) clearInterval(autoStoryInterval);
+        });
+        sendPromptBtn.addEventListener('click', () => sendPrompt());
+        promptInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendPrompt();
+        });
+        // Stop auto story if user starts typing
+        promptInput.addEventListener('input', () => {
+            if (promptInput.value && autoStoryInterval) {
+                clearInterval(autoStoryInterval);
+                logStatus("Auto-story paused (user typing).");
+            } else if (!promptInput.value) {
+                startAutoStory();
+                logStatus("Auto-story resumed.");
+            }
+        });
     </script>
 </body>
 </html>
