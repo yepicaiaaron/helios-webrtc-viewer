@@ -207,6 +207,16 @@
                 } else if (topic === 'fps') {
                     fpsBadge.style.display = 'block';
                     fpsBadge.textContent = text;
+                    const match = text.match(/FPS:?([\d.]+)/i);
+                    if (match && match[1]) {
+                        const fpsVal = parseFloat(match[1]);
+                        const videoEl = videoDisplay.querySelector('video');
+                        if (videoEl && fpsVal > 0) {
+                            let rate = fpsVal / 24.0;
+                            rate = Math.max(0.1, Math.min(rate, 2.0));
+                            videoEl.playbackRate = rate;
+                        }
+                    }
                 }
             });
 
