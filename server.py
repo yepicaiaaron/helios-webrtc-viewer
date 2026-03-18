@@ -2,9 +2,9 @@ import os
 from aiohttp import web
 from livekit import api
 
-LK_URL = "wss://chatgptme-sp76gr03.livekit.cloud"
-LK_API_KEY = "APIRBVfLnF2B2WF"
-LK_API_SECRET = "cEqJAr8wQHkRSZrM7o8oHY2HSguTn54gC5XBIxAs3pF"
+LK_URL = "ws://34.162.117.216:7880"
+LK_API_KEY = "devkey"
+LK_API_SECRET = "secretpassword"
 ROOM_NAME = "helios-dedicated-stream"
 
 async def handle_index(request):
